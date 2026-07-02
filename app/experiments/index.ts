@@ -2,6 +2,7 @@ import type { ComponentType } from "react"
 
 import { colors } from "@/theme"
 
+import { AvecTutorial } from "./AvecTutorial"
 import { Blank } from "./Blank"
 
 export type Experiment = {
@@ -22,5 +23,11 @@ export const experiments: Experiment[] = [
     subtitle: "Empty white canvas - start here",
     accent: colors.accent,
     component: Blank,
+  },
+  {
+    title: "Avec Tutorial",
+    subtitle: "Onboarding card UI replica",
+    accent: colors.green,
+    component: AvecTutorial,
   },
 ]
