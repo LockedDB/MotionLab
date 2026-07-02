@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "prebuild:clean": "npx expo prebuild --clean",
     "compile": "tsc --noEmit -p . --pretty",
+    "test": "node --import tsx --test \"app/**/*.test.ts\"",
     "lint": "eslint . --fix",
     "lint:check": "eslint .",
     "align-deps": "npx expo install --fix"
@@ -38,6 +39,7 @@
     "@babel/core": "^7.20.0",
     "@babel/preset-env": "^7.20.0",
     "@babel/runtime": "^7.20.0",
+    "@types/node": "^22",
     "@types/react": "~19.2.10",
     "eslint": "^8.57.0",
     "eslint-config-expo": "~55.0.0",

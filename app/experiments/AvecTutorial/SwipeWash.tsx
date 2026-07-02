@@ -11,12 +11,8 @@ import Animated, {
 } from "react-native-reanimated"
 
 // A tint that washes over the card as it's dragged toward one side, reaching
-// full color right as it crosses the dismiss threshold. Same mechanic for both
-// swipes - only the color, side (direction: +1 right, -1 left) and the badge
-// differ, so red-wrong and gray-correct share this one implementation.
-//
-// On top of the tint, an icon+label badge pops in with a pulse (fast opacity,
-// scale springs up past 1 and settles) the moment the drag activates that side.
+// full color right as it crosses the dismiss threshold. On top of the tint, an
+// icon+label badge pops in once the drag crosses that same threshold.
 export function SwipeWash({
   translateX,
   direction,
@@ -38,9 +34,8 @@ export function SwipeWash({
     opacity: interpolate(translateX.value * direction, [0, threshold], [0, 1], "clamp"),
   }))
 
-  // One-shot pop: fires when the drag crosses a small activation fraction of the
-  // threshold, resets when it drops back. Opacity is quick; scale springs with
-  // overshoot for the pulse.
+  // One-shot pop: fires when the drag crosses the threshold, resets when it
+  // drops back.
   const opacity = useSharedValue(0)
   const scale = useSharedValue(0.9)
   useAnimatedReaction(
@@ -81,8 +76,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: 22,
   },
-  // Sits in a top corner (like the reference), icon above label. The side is
-  // chosen by `corner` so the badge hugs the edge the card is heading toward.
   badge: {
     gap: 6,
     position: "absolute",
