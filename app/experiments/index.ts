@@ -4,6 +4,7 @@ import { colors } from "@/theme"
 
 import { AvecTutorial } from "./AvecTutorial"
 import { Blank } from "./Blank"
+import { KheperScratch } from "./KheperScratch"
 
 export type Experiment = {
   title: string
@@ -29,5 +30,11 @@ export const experiments: Experiment[] = [
     subtitle: "Onboarding card UI replica",
     accent: colors.green,
     component: AvecTutorial,
+  },
+  {
+    title: "Kheper Scratch",
+    subtitle: "Scratch-to-reveal app icons (design skeleton)",
+    accent: colors.pink,
+    component: KheperScratch,
   },
 ]
