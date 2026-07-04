@@ -6,6 +6,7 @@ import {
   Group,
   LinearGradient,
   matchFont,
+  notifyChange,
   Paint,
   Path,
   RoundedRect,
@@ -22,9 +23,9 @@ import { C } from "./palette"
 
 // Eraser width (finger tip) and the coverage grid used to decide when "enough"
 // foil is gone. An 8x8 grid is cheap to update on the UI thread every frame.
+// The stroke is a physical finger size, so it does not scale with the tile.
 const STROKE_WIDTH = 30
 const GRID = 8
-const CELL = TILE_SIZE / GRID
 const RADIUS = STROKE_WIDTH / 2
 // Past this fraction of cleared cells, the remaining foil snaps away at once.
 const REVEAL_THRESHOLD = 0.9
@@ -47,13 +48,19 @@ const REVEAL_THRESHOLD = 0.9
  */
 export function ScratchFoil({
   label = "scratch",
+  size = TILE_SIZE,
   onRevealComplete,
 }: {
   label?: string
+  /** Edge length of the covered tile; the foil geometry derives from it. */
+  size?: number
   /** Fired once the foil is scratched past the reveal threshold. */
   onRevealComplete?: () => void
 }) {
-  const { gesture, path, layerOpacity } = useScratchReveal({ onRevealComplete })
+  const { gesture, path, layerOpacity } = useScratchReveal({ size, onRevealComplete })
+
+  // Same corner ratio as AppIconTile, so the foil hugs the tile at any size.
+  const radius = (TILE_RADIUS / TILE_SIZE) * size
 
   // System font for the label - no bundled .ttf needed. matchFont is synchronous.
   const font = useMemo(
@@ -66,19 +73,20 @@ export function ScratchFoil({
     [],
   )
   const textWidth = font.measureText(label).width
-  const textX = (TILE_SIZE - textWidth) / 2
-  // Baseline offset to visually center the single line within the square.
-  const textY = TILE_SIZE / 2 + 4.5
+  const textX = (size - textWidth) / 2
+  // Center the baseline from the font's real metrics (ascent is negative).
+  const metrics = font.getMetrics()
+  const textY = size / 2 - (metrics.ascent + metrics.descent) / 2
 
   return (
     <GestureDetector gesture={gesture}>
-      <Canvas style={styles.foil}>
+      <Canvas style={[styles.foil, { borderRadius: radius }]}>
         {/* Offscreen layer: the eraser's "clear" and the fade only touch the foil. */}
         <Group layer={<Paint opacity={layerOpacity} />}>
-          <RoundedRect x={0} y={0} width={TILE_SIZE} height={TILE_SIZE} r={TILE_RADIUS}>
+          <RoundedRect x={0} y={0} width={size} height={size} r={radius}>
             <LinearGradient
               start={vec(0, 0)}
-              end={vec(TILE_SIZE, TILE_SIZE)}
+              end={vec(size, size)}
               colors={[C.foilLight, C.foilMid, C.foilDark]}
             />
           </RoundedRect>
@@ -104,37 +112,32 @@ export function ScratchFoil({
 /**
  * The scratch-to-reveal interaction hook.
  *
- * Owns the Pan gesture, the growing finger path (kept as points and rebuilt into
- * an SkPath reactively via useDerivedValue), the coverage grid, and the
- * instant snap-to-complete. All the per-frame work runs on the UI thread; we hop
- * back to JS via scheduleOnRN for the haptics and `onRevealComplete`.
+ * Owns the Pan gesture, the growing finger path (one persistent SkPath appended
+ * to in place, with notifyChange triggering the redraw), the coverage grid, and
+ * the instant snap-to-complete. All the per-frame work runs on the UI thread; we
+ * hop back to JS via scheduleOnRN for the haptics and `onRevealComplete`.
  */
-export function useScratchReveal({ onRevealComplete }: { onRevealComplete?: () => void }) {
-  // Raw finger points, accumulated across every stroke (lifting the finger does
-  // not clear them). `move` starts a fresh sub-path so separate strokes don't get
-  // joined by a straight line across the tile.
-  const points = useSharedValue<{ x: number; y: number; move: boolean }[]>([])
-  // 1 = cell scratched. Reassigned (not mutated in place) so reads stay clean.
+export function useScratchReveal({
+  size,
+  onRevealComplete,
+}: {
+  size: number
+  onRevealComplete?: () => void
+}) {
+  const cell = size / GRID
+  // The finger trail, accumulated across every stroke (lifting the finger does
+  // not clear it). Mutated in place - moveTo starts a fresh sub-path so separate
+  // strokes don't get joined - and O(1) per point, so long scratch sessions
+  // don't degrade. notifyChange tells Skia the path changed.
+  const path = useSharedValue(Skia.Path.Make())
+  // 1 = cell scratched. Mutated in place; nothing subscribes to it reactively,
+  // `clearedCount` carries the running total instead of a per-frame recount.
   const cells = useSharedValue<number[]>(new Array(GRID * GRID).fill(0))
+  const clearedCount = useSharedValue(0)
   const revealed = useSharedValue(false)
   // 0 while scratching (layer fully opaque, with holes); flips to 1 at once on
   // reveal so the leftover foil vanishes instantly (no fade).
   const snap = useSharedValue(0)
-
-  // Rebuild the stroke path from the accumulated points. Recomputes whenever a
-  // new point is pushed; O(n) with a tiny n for a 91px tile.
-  const path = useDerivedValue(() => {
-    const p = Skia.Path.Make()
-    const pts = points.value
-    for (let i = 0; i < pts.length; i++) {
-      if (pts[i].move) {
-        p.moveTo(pts[i].x, pts[i].y)
-      } else {
-        p.lineTo(pts[i].x, pts[i].y)
-      }
-    }
-    return p
-  })
 
   const layerOpacity = useDerivedValue(() => 1 - snap.value)
 
@@ -149,24 +152,24 @@ export function useScratchReveal({ onRevealComplete }: { onRevealComplete?: () =
   // cleared, so the buzz tracks actual scratching rather than every frame.
   const applyPoint = (x: number, y: number) => {
     "worklet"
-    const arr = cells.value.slice()
-    const minCol = Math.max(0, Math.floor((x - RADIUS) / CELL))
-    const maxCol = Math.min(GRID - 1, Math.floor((x + RADIUS) / CELL))
-    const minRow = Math.max(0, Math.floor((y - RADIUS) / CELL))
-    const maxRow = Math.min(GRID - 1, Math.floor((y + RADIUS) / CELL))
+    const arr = cells.value
+    const minCol = Math.max(0, Math.floor((x - RADIUS) / cell))
+    const maxCol = Math.min(GRID - 1, Math.floor((x + RADIUS) / cell))
+    const minRow = Math.max(0, Math.floor((y - RADIUS) / cell))
+    const maxRow = Math.min(GRID - 1, Math.floor((y + RADIUS) / cell))
     let clearedNew = false
     for (let row = minRow; row <= maxRow; row++) {
       for (let col = minCol; col <= maxCol; col++) {
         const idx = row * GRID + col
-        if (arr[idx] === 0) clearedNew = true
-        arr[idx] = 1
+        if (arr[idx] === 0) {
+          arr[idx] = 1
+          clearedCount.value += 1
+          clearedNew = true
+        }
       }
     }
-    cells.value = arr
     if (clearedNew) scheduleOnRN(tick)
-    let count = 0
-    for (let i = 0; i < arr.length; i++) count += arr[i]
-    return count / arr.length
+    return clearedCount.value / arr.length
   }
 
   const maybeSnap = (ratio: number) => {
@@ -185,12 +188,14 @@ export function useScratchReveal({ onRevealComplete }: { onRevealComplete?: () =
     .onStart((e) => {
       if (revealed.value) return
       // Begin a new sub-path; keep every previous stroke.
-      points.value = [...points.value, { x: e.x, y: e.y, move: true }]
+      path.value.moveTo(e.x, e.y)
+      notifyChange(path)
       maybeSnap(applyPoint(e.x, e.y))
     })
     .onUpdate((e) => {
       if (revealed.value) return
-      points.value = [...points.value, { x: e.x, y: e.y, move: false }]
+      path.value.lineTo(e.x, e.y)
+      notifyChange(path)
       maybeSnap(applyPoint(e.x, e.y))
     })
 
@@ -200,7 +205,6 @@ export function useScratchReveal({ onRevealComplete }: { onRevealComplete?: () =
 const styles = StyleSheet.create({
   foil: {
     ...StyleSheet.absoluteFillObject,
-    borderRadius: TILE_RADIUS,
     overflow: "hidden",
   },
 })
