@@ -16,7 +16,7 @@ export const C = {
   tileMint: "#E7F3E9",
   tileBlue: "#E6EFFA",
   tileLime: "#EFF4DE",
-  tileStroke: "#ECEAEA",
+  tileStroke: "#D8D6D6",
 
   // Silver scratch-off foil.
   foilLight: "#EAEAEC",
