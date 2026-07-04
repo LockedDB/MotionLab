@@ -2,10 +2,6 @@ import Svg, { Circle, Path } from "react-native-svg"
 
 import { C } from "./palette"
 
-// Small SVG marks for the Kheper birthday sheet - drawn as SVG so they stay
-// crisp at any size. The hero uses the Kheper isologo image directly.
-
-/** Small check used inside the "selected" badge on the active app icon. */
 export function CheckIcon({ size = 14, color = C.badgeTick }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -20,7 +16,6 @@ export function CheckIcon({ size = 14, color = C.badgeTick }: { size?: number; c
   )
 }
 
-/** Circular "selected" badge (dark disc + white tick), pinned to a tile corner. */
 export function SelectedBadge({ size = 22 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">

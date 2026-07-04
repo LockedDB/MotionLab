@@ -11,12 +11,8 @@ import {
   REVEAL_THRESHOLD,
 } from "./coverage"
 
-// Run with `yarn test` (Node's built-in runner through tsx - no simulator needed).
-
-// The real tile is 91px, so cells are a fractional 11.375px wide. Tests that want
-// exact integer arithmetic use an 80px tile (10px cells) instead.
 const TILE = 91
-const CELL = TILE / GRID // 11.375
+const CELL = TILE / GRID
 
 describe("cellSize", () => {
   test("splits the tile into GRID cells", () => {
@@ -30,21 +26,17 @@ describe("cellSize", () => {
 })
 
 describe("cellRange", () => {
-  // 80px tile -> 10px cells, RADIUS 15, so every case has clean integer bounds.
   const cell = 10
 
   test("never returns a negative index at the left edge", () => {
-    // center 0: (0 - 15) / 10 = -1.5 -> would be -2, clamped to 0.
     assert.deepEqual(cellRange(0, cell), { min: 0, max: 1 })
   })
 
   test("never exceeds GRID - 1 at the right edge", () => {
-    // center 80: (80 + 15) / 10 = 9.5 -> would be 9, clamped to GRID - 1.
     assert.deepEqual(cellRange(80, cell), { min: 6, max: GRID - 1 })
   })
 
   test("centers a symmetric block in the middle of the tile", () => {
-    // center 40: [25/10, 55/10] = [2, 5].
     assert.deepEqual(cellRange(40, cell), { min: 2, max: 5 })
   })
 
@@ -57,7 +49,6 @@ describe("cellRange", () => {
   })
 
   test("the eraser is wider than one cell, so a stroke spans several", () => {
-    // Diameter is 2 * RADIUS = 30px, wider than a 10px cell.
     const { min, max } = cellRange(40, cell)
     assert.ok(max - min >= 2)
     assert.ok(2 * RADIUS > cell)
@@ -83,7 +74,6 @@ describe("cellsForPoint", () => {
   })
 
   test("indices follow the row * GRID + col layout", () => {
-    // center (5, 5): both ranges clamp to [0, 2] -> a 3x3 block at the corner.
     const idxs = cellsForPoint(5, 5, cell)
     assert.deepEqual(idxs, [0, 1, 2, 8, 9, 10, 16, 17, 18])
   })

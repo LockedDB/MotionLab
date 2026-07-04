@@ -7,23 +7,10 @@ import { AppIconTile, TILE_SIZE } from "./AppIconTile"
 import { C } from "./palette"
 import { ScratchFoil } from "./ScratchFoil"
 
-/**
- * Replica of the Threads "turning one" app-icon sheet, reskinned for Kheper: a
- * birthday celebration modal where alternative app icons are hidden under a
- * silver scratch-off foil and revealed by scratching.
- *
- * Flow: covered icons render the foil; scratching past the threshold fires
- * `handleRevealComplete`, which unmounts the foil (revealing the icon with a pop)
- * and makes that icon selectable. Tapping any revealed icon applies it - the dark
- * badge moves to it - mirroring the single "currently applied" icon model.
- */
-
 type IconOption = {
   id: string
   background: string
   logo: ImageSourcePropType
-  // Covered icons start hidden under the scratch foil; the selected one is the
-  // currently applied icon and shows the badge instead.
   covered: boolean
   selected?: boolean
 }
@@ -68,23 +55,17 @@ const ICONS: IconOption[] = [
   },
 ]
 
-// The icon applied when the sheet opens (the pre-revealed one carrying the badge).
 const INITIAL_SELECTED_ID = ICONS.find((icon) => icon.selected)?.id ?? null
 
 export function KheperScratch() {
   const insets = useSafeAreaInsets()
-  // Which covered icons have been scratched off. Flipping an id to true unmounts
-  // its foil (so it vanishes at once) and triggers the tile's reveal pop.
   const [revealed, setRevealed] = useState<Record<string, boolean>>({})
-  // The single currently-applied icon. Revealed icons can be tapped to become it.
   const [selectedId, setSelectedId] = useState<string | null>(INITIAL_SELECTED_ID)
 
   const handleRevealComplete = (id: string) => {
     setRevealed((r) => ({ ...r, [id]: true }))
   }
 
-  // Apply an icon. A light impact confirms the switch (only when it actually
-  // changes, so re-tapping the applied icon stays silent).
   const handleSelect = (id: string) => {
     if (id !== selectedId) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     setSelectedId(id)
@@ -95,7 +76,6 @@ export function KheperScratch() {
       <StatusBar barStyle="dark-content" />
 
       <View style={styles.hero}>
-        {/* The Kheper mark shown as a white app-icon tile, a touch larger than the grid. */}
         <AppIconTile
           background={C.sheet}
           logo={require("../../../assets/images/kheper/iso-black.png")}
@@ -116,7 +96,6 @@ export function KheperScratch() {
         <View style={styles.iconGrid}>
           {ICONS.map((icon) => {
             const isRevealed = !!revealed[icon.id]
-            // The pre-applied icon and any scratched-off icon can be tapped to apply.
             const isSelectable = !icon.covered || isRevealed
             return (
               <View key={icon.id} style={styles.slot}>
@@ -170,7 +149,6 @@ const styles = StyleSheet.create({
   bodyGap: {
     marginTop: 22,
   },
-  // The sheet hugs its content (the icon grid); the hero above takes the rest.
   sheet: {
     alignItems: "center",
     backgroundColor: C.sheet,
@@ -179,14 +157,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 64,
   },
-  // Width fixed to exactly three tiles per row so six icons wrap into a 2x3 grid.
   iconGrid: {
     columnGap: 18,
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
     rowGap: 26,
-    // 3 * TILE_SIZE + 2 * columnGap (18) = 264
     width: TILE_SIZE * 3 + 36,
   },
   slot: {
