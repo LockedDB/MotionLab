@@ -19,16 +19,8 @@ import { useDerivedValue, useSharedValue } from "react-native-reanimated"
 import { scheduleOnRN } from "react-native-worklets"
 
 import { TILE_RADIUS, TILE_SIZE } from "./AppIconTile"
+import { cellSize, cellsForPoint, GRID, isRevealed, STROKE_WIDTH } from "./coverage"
 import { C } from "./palette"
-
-// Eraser width (finger tip) and the coverage grid used to decide when "enough"
-// foil is gone. An 8x8 grid is cheap to update on the UI thread every frame.
-// The stroke is a physical finger size, so it does not scale with the tile.
-const STROKE_WIDTH = 30
-const GRID = 8
-const RADIUS = STROKE_WIDTH / 2
-// Past this fraction of cleared cells, the remaining foil snaps away at once.
-const REVEAL_THRESHOLD = 0.9
 
 /**
  * The silver "scratch-off" foil that covers an unrevealed app icon. The real
@@ -124,7 +116,7 @@ export function useScratchReveal({
   size: number
   onRevealComplete?: () => void
 }) {
-  const cell = size / GRID
+  const cell = cellSize(size)
   // The finger trail, accumulated across every stroke (lifting the finger does
   // not clear it). Mutated in place - moveTo starts a fresh sub-path so separate
   // strokes don't get joined - and O(1) per point, so long scratch sessions
@@ -153,19 +145,14 @@ export function useScratchReveal({
   const applyPoint = (x: number, y: number) => {
     "worklet"
     const arr = cells.value
-    const minCol = Math.max(0, Math.floor((x - RADIUS) / cell))
-    const maxCol = Math.min(GRID - 1, Math.floor((x + RADIUS) / cell))
-    const minRow = Math.max(0, Math.floor((y - RADIUS) / cell))
-    const maxRow = Math.min(GRID - 1, Math.floor((y + RADIUS) / cell))
+    const idxs = cellsForPoint(x, y, cell)
     let clearedNew = false
-    for (let row = minRow; row <= maxRow; row++) {
-      for (let col = minCol; col <= maxCol; col++) {
-        const idx = row * GRID + col
-        if (arr[idx] === 0) {
-          arr[idx] = 1
-          clearedCount.value += 1
-          clearedNew = true
-        }
+    for (let i = 0; i < idxs.length; i++) {
+      const idx = idxs[i]
+      if (arr[idx] === 0) {
+        arr[idx] = 1
+        clearedCount.value += 1
+        clearedNew = true
       }
     }
     if (clearedNew) scheduleOnRN(tick)
@@ -174,7 +161,7 @@ export function useScratchReveal({
 
   const maybeSnap = (ratio: number) => {
     "worklet"
-    if (!revealed.value && ratio >= REVEAL_THRESHOLD) {
+    if (!revealed.value && isRevealed(ratio)) {
       revealed.value = true
       // Snap the foil away at once - no opacity fade. The parent then unmounts it.
       snap.value = 1
