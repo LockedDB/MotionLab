@@ -108,7 +108,7 @@ export function KheperScratch() {
           We&apos;re celebrating by giving you new app icons designed by the Kheper community.
         </Text>
         <Text style={[styles.body, styles.bodyGap]}>
-          Come back every day this week for a new one. You can change your icon until 12 July 2025
+          Come back every day this week for a new one. You can change your icon until 12 July 2026
         </Text>
       </View>
 
