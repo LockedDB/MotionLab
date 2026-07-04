@@ -18,11 +18,14 @@ export const C = {
   tileLime: "#EFF4DE",
   tileStroke: "#D8D6D6",
 
-  // Silver scratch-off foil.
-  foilLight: "#EAEAEC",
-  foilMid: "#B9B9BE",
-  foilDark: "#CFCFD4",
-  foilLabel: "#7C7C82",
+  // Silver scratch-off foil. Cool-tinted greys with real light-to-dark range so
+  // the metallic gradient and grain have something to bite on. `foilSheen` is the
+  // near-white specular band that sweeps across the middle of the foil.
+  foilLight: "#D2D4DB",
+  foilMid: "#A7A9B4",
+  foilDark: "#8C8E99",
+  foilSheen: "#D5D6DD",
+  foilLabel: "#6F717C",
 
   // Selected badge.
   badge: "#0E0E0E",

@@ -1,26 +1,38 @@
+import {
+    Canvas,
+    ColorMatrix,
+    FractalNoise,
+    Group,
+    LinearGradient,
+    matchFont,
+    notifyChange,
+    Paint,
+    Path,
+    RoundedRect,
+    Skia,
+    Text as SkiaText,
+    vec,
+} from "@shopify/react-native-skia"
+import * as Haptics from "expo-haptics"
 import { useMemo } from "react"
 import { Platform, StyleSheet } from "react-native"
-import * as Haptics from "expo-haptics"
-import {
-  Canvas,
-  Group,
-  LinearGradient,
-  matchFont,
-  notifyChange,
-  Paint,
-  Path,
-  RoundedRect,
-  Skia,
-  Text as SkiaText,
-  vec,
-} from "@shopify/react-native-skia"
 import { Gesture, GestureDetector } from "react-native-gesture-handler"
 import { useDerivedValue, useSharedValue } from "react-native-reanimated"
 import { scheduleOnRN } from "react-native-worklets"
 
 import { TILE_RADIUS, TILE_SIZE } from "./AppIconTile"
-import { cellSize, cellsForPoint, GRID, isRevealed, STROKE_WIDTH } from "./coverage"
+import { cellsForPoint, cellSize, GRID, isRevealed, STROKE_WIDTH } from "./coverage"
 import { C } from "./palette"
+
+// Collapses the (naturally rainbow) fractal-noise channels to luminance grain and
+// forces the alpha opaque, so the grain reads as monochrome metallic speckle
+// rather than coloured dots. Rows are the standard Rec. 709 luma weights.
+const GRAIN_TO_LUMA = [
+  0.2126, 0.7152, 0.0722, 0, 0,
+  0.2126, 0.7152, 0.0722, 0, 0,
+  0.2126, 0.7152, 0.0722, 0, 0,
+  0, 0, 0, 0, 1,
+]
 
 /**
  * The silver "scratch-off" foil that covers an unrevealed app icon. The real
@@ -75,13 +87,46 @@ export function ScratchFoil({
       <Canvas style={[styles.foil, { borderRadius: radius }]}>
         {/* Offscreen layer: the eraser's "clear" and the fade only touch the foil. */}
         <Group layer={<Paint opacity={layerOpacity} />}>
+          {/* Metallic base: a near-horizontal gradient (tilted ~18deg off level) with
+              two specular bands (foilSheen) - a narrow one on the left and a broader
+              one through the middle - separated by darker valleys. The tilt makes the
+              bands lean like light glancing across brushed metal. The axis overshoots
+              the tile (negative start / >size end) so the bands still span the corners
+              once rotated. */}
           <RoundedRect x={0} y={0} width={size} height={size} r={radius}>
             <LinearGradient
-              start={vec(0, 0)}
-              end={vec(size, size)}
-              colors={[C.foilLight, C.foilMid, C.foilDark]}
+              start={vec(-0.094 * size, 0.693 * size)}
+              end={vec(1.094 * size, 0.307 * size)}
+              colors={[
+                C.foilDark,
+                C.foilMid,
+                C.foilSheen,
+                C.foilMid,
+                C.foilMid,
+                C.foilLight,
+                C.foilSheen,
+                C.foilLight,
+                C.foilMid,
+                C.foilDark,
+              ]}
+              positions={[0, 0.1, 0.18, 0.28, 0.44, 0.5, 0.57, 0.64, 0.82, 1]}
             />
           </RoundedRect>
+
+          {/* Fine metallic grain over the base. The layer desaturates the noise to
+              luminance and composites it with overlay at low opacity, so it darkens
+              and brightens the silver without tinting it. */}
+          <Group
+            layer={
+              <Paint opacity={0.08} blendMode="overlay">
+                <ColorMatrix matrix={GRAIN_TO_LUMA} />
+              </Paint>
+            }
+          >
+            <RoundedRect x={0} y={0} width={size} height={size} r={radius}>
+              <FractalNoise freqX={0.85} freqY={0.85} octaves={3} seed={1} />
+            </RoundedRect>
+          </Group>
 
           <SkiaText x={textX} y={textY} text={label} font={font} color={C.foilLabel} />
 
@@ -191,7 +236,7 @@ export function useScratchReveal({
 
 const styles = StyleSheet.create({
   foil: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: "hidden",
   },
 })
