@@ -10,7 +10,7 @@ export const STROKE_WIDTH = 30
 export const GRID = 8
 export const RADIUS = STROKE_WIDTH / 2
 // Past this fraction of cleared cells, the remaining foil snaps away at once.
-export const REVEAL_THRESHOLD = 0.9
+export const REVEAL_THRESHOLD = 0.97
 
 /** Edge length of one grid cell for a tile of the given size. */
 export function cellSize(size: number): number {
